@@ -1,23 +1,35 @@
 function rawData = load_or_generate_data(cfg)
-    % load_or_generate_data – load measurement files if available,
-    % otherwise generate synthetic data.
+% load_or_generate_data
+%   If Excel files exist in the data folder, read them using read_data()
+%   and build a struct of structs.
+%   Otherwise, generate synthetic data as a fallback.
 
-    % Example skeleton:
-    % 1) Try loading an existing .mat file
-    matFile = fullfile(cfg.paths.dataDir, "rawData.mat"); %% rawData is a temp name - need to change!
-    if isfile(matFile)
-        s = load(matFile);
-        rawData = s.rawData;
+    dataDir = cfg.paths.dataDir;
+    xlsFiles = dir(fullfile(dataDir, '*.xlsx'));
+
+    if ~isempty(xlsFiles)
+        % ----- Real data path -----
+        rawData = struct();
+
+        for k = 1:numel(xlsFiles)
+            filePath = fullfile(xlsFiles(k).folder, xlsFiles(k).name);
+
+            % Use filename (without extension) as struct field
+            [~, baseName, ~] = fileparts(xlsFiles(k).name);
+
+            % Example: rawData.Transformer1, rawData.YardA, etc.
+            rawData.(baseName) = read_data(filePath);
+        end
+
         return;
     end
 
-    % 2) If file does not exist – create simple synthetic data as a placeholder
-    numSamples    = cfg.totalDuration_days * 24 * 3600 / cfg.sampleTime_sec;
-    T             = numSamples;
-    Tr            = cfg.numTransformers;
-    C             = cfg.numCustomersTotal;
+    % ----- Synthetic data fallback  -----
+    numSamples = cfg.totalDuration_days * 24 * 3600 / cfg.sampleTime_sec;
+    T          = numSamples;
+    Tr         = cfg.numTransformers;
+    C          = cfg.numCustomersTotal;
 
-    % TODO: replace random data with a more realistic consumption model
-    rawData.trPower   = rand(T, Tr);    % Transformer power/energy time-series
-    rawData.custPower = rand(T, C);     % Customer power/energy time-series
+    rawData.trPower   = rand(T, Tr);    % placeholder transformer series
+    rawData.custPower = rand(T, C);     % placeholder customer series
 end
