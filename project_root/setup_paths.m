@@ -1,8 +1,13 @@
 function setup_paths()
     % setup_paths – add all relevant subfolders to the MATLAB path
-    rootDir = fileparts(mfilename('fullpath'));
-    addpath(fullfile(rootDir, "config"));
-    addpath(fullfile(rootDir, "algorithms"));
-    addpath(fullfile(rootDir, "utils"));
-    addpath(fullfile(rootDir, "data"));
+
+    projectRoot = fileparts(mfilename('fullpath'));
+    
+    addpath(fullfile(projectRoot, "project_root"));
+    addpath(fullfile(projectRoot, "config"));
+    addpath(fullfile(projectRoot, "algorithms"));
+    addpath(fullfile(projectRoot, "utils"));
+    addpath(fullfile(projectRoot, "data"));
+
+    disp("Paths added successfully.");
 end
