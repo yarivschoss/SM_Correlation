@@ -78,7 +78,8 @@ end
 % ======================================================================
 function [timeVec, valueClean, valueRaw, ...
           maskMissingOrig, maskAnomaly, maskLongGap, maskValid] = ...
-          clean_single_series(timeIn, valuesIn, dtSeconds, preproc)
+          clean_single_series(timeIn, valuesIn, dtDuration, preproc)
+% dtDuration – sampling step as a duration object
 % clean_single_series
 %   Clean one smart-meter time series using:
 %       - time alignment to regular grid
@@ -93,11 +94,11 @@ function [timeVec, valueClean, valueRaw, ...
     % ---------- 1) Align on regular time grid ----------
     tt = timetable(timeIn, valuesIn, 'VariableNames', {'value'});
 
-    % Create regular timetable with NaN for missing timestamps
+     % Create regular timetable with NaN for missing timestamps
     ttReg = retime(tt, 'regular', 'fillwithmissing', ...
-                   'TimeStep', seconds(dtSeconds));
+                   'TimeStep', dtDuration);
 
-    timeVec   = ttReg.Time;
+    timeVec = ttReg.Properties.RowTimes;
     valueRaw  = ttReg.value;           % may contain NaN where samples are missing
 
     % Original missing mask (before any cleaning)
