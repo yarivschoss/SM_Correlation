@@ -1,13 +1,20 @@
 function setup_paths()
-    % setup_paths – add all relevant subfolders to the MATLAB path
+    % setup_paths – add all relevant folders to the MATLAB path
 
-    projectRoot = fileparts(mfilename('fullpath'));
-    
-    addpath(fullfile(projectRoot, "project_root"));
-    addpath(fullfile(projectRoot, "config"));
-    addpath(fullfile(projectRoot, "algorithms"));
-    addpath(fullfile(projectRoot, "utils"));
-    addpath(fullfile(projectRoot, "data"));
+    % thisFileDir  = folder where setup_paths.m is located (project_root)
+    thisFileDir = fileparts(mfilename('fullpath'));
+
+    % repoRoot = parent folder of project_root (SM_Correlation)
+    repoRoot = fileparts(thisFileDir);
+
+    % Add project_root itself (main.m, setup_paths.m)
+    addpath(thisFileDir);
+
+    % Add subfolders that sit next to project_root
+    addpath(fullfile(repoRoot, "config"));
+    addpath(fullfile(repoRoot, "algorithms"));
+    addpath(fullfile(repoRoot, "utils"));
+    addpath(fullfile(repoRoot, "data"));
 
     disp("Paths added successfully.");
 end
