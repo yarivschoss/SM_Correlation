@@ -13,6 +13,8 @@ function main()
     % Step 2: Pre-processing of raw data
     data = preprocess_data(rawData, cfg);
 
+    plot_raw_vs_clean(rawData, data, "Transformer1", datetime(2025,8,1));
+
     % Step 3: Run energy-balance-based algorithm
     results.energyBalance = run_energy_balance(data, cfg);
 
