@@ -63,13 +63,4 @@ function T = generate_from_indexed_NE(E_i, n_i, startTime, outXlsx)
         error("outXlsx must be an Excel file path ending with .xlsx or .xls");
     end
     writetable(T, outXlsx, 'FileType', 'spreadsheet');
-
-    % --- Quick plot: X-axis energy, Y-axis period index ---
-    periodIdx = (1:N)';
-    figure('Name','Synthetic Continuous Log (EC vs Period)','Color','w');
-    plot(periodIdx, X , '-', 'LineWidth', 1.0);
-    grid on;
-    ylabel("EC (Energy per 15-min interval)");
-    xlabel("Period Index (1..18000)");
-    title("Synthetic Continuous Energy Log");
 end

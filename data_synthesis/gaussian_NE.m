@@ -26,15 +26,4 @@ function [E_i, n_i, samples] = gaussian_NE(E_mean, sigma2, nSamples)
 
     % Random samples from N(E)
     samples = E_mean + sigma * randn(nSamples,1);
-
-    % Plot using the indexed series
-    figure('Color','w');
-    histogram(samples, 60, 'Normalization','pdf');
-    hold on;
-    plot(E_i, n_i, 'r', 'LineWidth', 2);
-    grid on;
-    xlabel("Energy E(i)");
-    ylabel("N(E(i))");
-    title(sprintf("Gaussian Distribution  N(E = %.0f, \\sigma = %.0f)", E_mean, sigma));
-    legend("Samples","N(E(i))");
 end

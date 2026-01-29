@@ -15,6 +15,8 @@ function setup_paths()
     addpath(fullfile(repoRoot, "algorithms"));
     addpath(fullfile(repoRoot, "utils"));
     addpath(fullfile(repoRoot, "data"));
+    addpath(fullfile(repoRoot, "data_synthesis"));
+    addpath(fullfile(repoRoot, "plot"));
 
     disp("Paths added successfully.");
 end
