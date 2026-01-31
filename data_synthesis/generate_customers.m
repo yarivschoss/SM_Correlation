@@ -8,7 +8,7 @@ function generate_customers(nCustomers, nSons, varargin)
 % Each customer:
 %   E ~ Uniform[5500,8000]
 %   sigma = E/4
-%   18000 quarter-hourly samples (~6 months)
+%   N quarter-hourly samples 
 %
 % Uses:
 %   gaussian_NE.m
@@ -66,7 +66,7 @@ for k = 1:nCustomers
     fpath = fullfile(outDir, fname);
 
     % --- Generate Excel log ---
-    generate_from_indexed_NE(E_i, n_i, startTime, fpath);
+    generate_from_indexed_NE(E_i, n_i, startTime, fpath, 500);
 
     % --- Save metadata ---
     meta.CustomerID(k) = k;

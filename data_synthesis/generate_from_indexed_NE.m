@@ -1,4 +1,4 @@
-function T = generate_from_indexed_NE(E_i, n_i, startTime, outXlsx)
+function T = generate_from_indexed_NE(E_i, n_i, startTime, outXlsx, N)
 % generate_excel_log_from_indexed_NE
 %   Generates a continuous quarter-hourly synthetic energy log (18000 samples)
 %   whose empirical distribution matches the given indexed N(E), and saves it
@@ -14,7 +14,10 @@ function T = generate_from_indexed_NE(E_i, n_i, startTime, outXlsx)
 % Output:
 %   T - table written to Excel
 
+    if nargin < 5 || isempty(N)
     N = 18000;
+    end
+    
     dt = minutes(15);
 
     % --- Validation ---

@@ -3,5 +3,5 @@ customersDir = fullfile(projectRoot, "data", "virtual_customers");
 outXlsx      = fullfile(projectRoot, "data", "transformer_profile.xlsx");
 
 dir(fullfile(customersDir,"*.xlsx"))   % בדיקה שחייב להחזיר קבצים
-generate_customers(120, 100);
+generate_customers(700, 580);
 generate_transformer_profile(customersDir, outXlsx);
