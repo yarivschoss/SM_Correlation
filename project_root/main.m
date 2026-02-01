@@ -8,7 +8,10 @@ function main()
     cfg = get_data_config();
 
     % Step 1: Run energy-balance-based algorithm
-    results.energyBalance = run_energy_balance_ukf();
+    
+    results.EB_UKF = run_energy_balance_ukf();
+
+    results.EB_NNLS = run_energy_balance_nnls();
 
     % Step 2: Run optimization (Gradient / Stochastic Gradient Descent)
     results.optimization = run_optimization(data, cfg);
