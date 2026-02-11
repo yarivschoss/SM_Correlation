@@ -28,7 +28,7 @@ p.addParameter('customersSubdir', fullfile("data","virtual_customers"), @(x)isst
 p.addParameter('transformerFile', fullfile("data","transformer_profile.xlsx"), @(x)isstring(x)||ischar(x));
 p.addParameter('doPlots', true, @(x)islogical(x)||ismember(x,[0 1]));
 p.addParameter('fixedTau', [], @(x)isnumeric(x)&&isscalar(x) || isempty(x));
-p.addParameter('rngSeed', 1, @(x)isnumeric(x)&&isscalar(x));
+p.addParameter('rngSeed', [], @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
 
 % UKF params
 p.addParameter('Qw', 1e-6, @(x)isnumeric(x)&&isscalar(x));      % process noise for weights
@@ -38,6 +38,7 @@ p.addParameter('alpha0', 0.01, @(x)isnumeric(x)&&isscalar(x));  % initial alpha
 p.addParameter('w0', 0.5, @(x)isnumeric(x)&&isscalar(x));       % initial w for all
 p.addParameter('wBounds', [0 1], @(x)isnumeric(x)&&numel(x)==2);
 p.addParameter('alphaBounds', [-0.2 0.2], @(x)isnumeric(x)&&numel(x)==2);
+p.addParameter('missingPolicy',"skip", @(x) any(strcmpi(string(x),["skip","hold"])));
 
 % UKF sigma-point tuning
 p.addParameter('ukf_alpha', 1e-3, @(x)isnumeric(x)&&isscalar(x));
@@ -56,7 +57,11 @@ p.addParameter('calibFrac', 0.7, @(x)isnumeric(x)&&isscalar(x)&&x>0&&x<1);
 p.parse(varargin{:});
 opt = p.Results;
 
-rng(opt.rngSeed);
+if isempty(opt.rngSeed)
+    rng('shuffle');   % different seed every run
+else
+    rng(opt.rngSeed); % reproducible
+end
 
 % resolve project root
 if strlength(string(opt.projectRoot))==0
@@ -187,27 +192,80 @@ y_hat = zeros(T,1);
 
 % -------------------- Run UKF over time --------------------
 for k = 1:T
-    x_in = X(k,:).'; % Ncust x 1 (customers at time k)
-    yk   = y(k);
 
-    % predict (random walk)
+    x_in = X(k,:).';     % customers at time k  (Ncust x 1)
+    yk   = y(k);         % transformer measurement
+
+    % ---------- Handle missing values ----------
+    hasMissing = isnan(yk) || any(isnan(x_in));
+
+    if hasMissing
+        switch lower(string(opt.missingPolicy))
+
+            case "skip"
+                % Prediction only (no measurement update)
+                [x_pred, P_pred] = ukf_predict(xk, P, Q, ukf_a, ukf_b, ukf_k);
+
+                xk = x_pred;
+                P  = P_pred;
+
+                y_hat(k) = NaN;
+
+                w_hist(:,k)   = xk(1:Ncust);
+                alpha_hist(k) = xk(end);
+                continue;
+
+            case "hold"
+                % Replace missing with previous available sample
+                if k > 1
+                    if isnan(yk)
+                        yk = y(k-1);
+                    end
+
+                    miss = isnan(x_in);
+                    if any(miss)
+                        x_in(miss) = X(k-1, miss);
+                    end
+                else
+                    % First sample missing → skip
+                    [x_pred, P_pred] = ukf_predict(xk, P, Q, ukf_a, ukf_b, ukf_k);
+
+                    xk = x_pred;
+                    P  = P_pred;
+
+                    y_hat(k) = NaN;
+
+                    w_hist(:,k)   = xk(1:Ncust);
+                    alpha_hist(k) = xk(end);
+                    continue;
+                end
+
+            otherwise
+                error("Unknown missingPolicy: %s", opt.missingPolicy);
+        end
+    end
+
+    % ---------- UKF Predict ----------
     [x_pred, P_pred] = ukf_predict(xk, P, Q, ukf_a, ukf_b, ukf_k);
 
-    % update with measurement
-    h = @(s) meas_model(s, x_in);  % scalar output
+    % ---------- UKF Update ----------
+    h = @(s) meas_model(s, x_in);  % scalar measurement model
     [x_upd, P_upd, yk_hat] = ukf_update(x_pred, P_pred, yk, R, h, ukf_a, ukf_b, ukf_k);
 
-    % clamp to physical bounds
+    % ---------- Clamp to physical bounds ----------
     x_upd(1:Ncust) = min(max(x_upd(1:Ncust), opt.wBounds(1)), opt.wBounds(2));
-    x_upd(end)     = min(max(x_upd(end),     opt.alphaBounds(1)), opt.alphaBounds(2));
+    x_upd(end)     = min(max(x_upd(end), opt.alphaBounds(1)), opt.alphaBounds(2));
 
+    % ---------- Save state ----------
     xk = x_upd;
     P  = P_upd;
 
-    w_hist(:,k) = xk(1:Ncust);
+    w_hist(:,k)   = xk(1:Ncust);
     alpha_hist(k) = xk(end);
-    y_hat(k) = yk_hat;
+    y_hat(k)      = yk_hat;
+
 end
+
 
 % final estimates (e.g., average over last chunk for stability)
 w_hat = mean(w_hist(:, max(1,T-200):T), 2);
@@ -281,7 +339,12 @@ results.y_hat = y_hat;
 results.rmse = rmse;
 
 results.classification = cls;
-results.isSon = w_hat >= cls.tau;
+
+if isfield(cls,'tau') && ~isempty(cls.tau)
+    results.isSon = (w_hat >= cls.tau);
+else
+    results.isSon = [];
+end
 
 % -------------------- Plots --------------------
 if opt.doPlots
@@ -304,11 +367,15 @@ if opt.doPlots
 
     if ~isempty(isSon)
         figure('Color','w','Name','w score with GT');
-        stem(w_hat, 'DisplayName','w\_hat'); hold on;
+        stem(w_hat, 'DisplayName','GT orphans'); hold on;
         stem(find(isSon), w_hat(isSon), 'DisplayName','GT sons');
         grid on; xlabel('Customer index'); ylabel('w\_hat');
-        title('Final weights with ground truth');
+        title('Final Weights');
         legend('Location','best');
+
+        if isfield(cls,'tau') && ~isempty(cls.tau)
+           yline(cls.tau,'k--','DisplayName','\tau');
+        end
 
         fprintf('\nClassification (if GT available):\n');
         fprintf('  tau* = %.3f\n', cls.tau);

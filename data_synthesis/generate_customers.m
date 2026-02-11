@@ -16,7 +16,7 @@ function generate_customers(nCustomers, nSons, varargin)
 
 p = inputParser;
 p.addParameter('rngSeed', [], @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
-p.addParameter('periods', [], @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
+p.addParameter('periods', 1500, @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -66,12 +66,7 @@ for k = 1:nCustomers
     fname = sprintf("customer_%03d.xlsx", k);
     fpath = fullfile(outDir, fname);
 
-
-    if isempty(opt.periods)
-        nPeriods = 1500;
-    else
-        nPeriods = opt.periods;
-    end
+    nPeriods = opt.periods;
 
     % --- Generate Excel log ---
     generate_from_indexed_NE(E_i, n_i, startTime, fpath, nPeriods);

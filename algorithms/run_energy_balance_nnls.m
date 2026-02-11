@@ -17,6 +17,7 @@ p = inputParser;
 p.addParameter('projectRoot', "", @(x)isstring(x)||ischar(x));
 p.addParameter('customersSubdir', fullfile("data","virtual_customers"), @(x)isstring(x)||ischar(x));
 p.addParameter('transformerFile', fullfile("data","transformer_profile.xlsx"), @(x)isstring(x)||ischar(x));
+p.addParameter('missingPolicy',"dropRows", @(x) any(strcmpi(string(x),["dropRows","interp","hold"])));
 p.addParameter('doPlots', true, @(x)islogical(x)||ismember(x,[0 1]));
 
 % Classification options (optional)
@@ -90,12 +91,39 @@ end
 
 y = tt_tr.Y;
 
-% -------------------- NNLS solve --------------------
-w_hat = lsqnonneg(X, y);
+% -------------------- Handle missing (NaNs) --------------------
+switch lower(string(opt.missingPolicy))
+    case "droprows"
+        valid = ~isnan(y) & all(~isnan(X), 2);
+        dropped = sum(~valid);
+        if dropped > 0
+            fprintf("NNLS missingPolicy=dropRows: dropped %d/%d rows (%.2f%%)\n", ...
+                dropped, numel(y), 100*dropped/numel(y));
+        end
+        X_use = X(valid,:);
+        y_use = y(valid);
 
-% -------------------- Reconstruction --------------------
+    case "interp"
+        % linear interpolation column-wise (offline)
+        X_use = fillmissing(X,'linear','EndValues','nearest');
+        y_use = fillmissing(y,'linear','EndValues','nearest');
+
+    case "hold"
+        % carry last observation forward (offline)
+        X_use = fillmissing(X,'previous','EndValues','nearest');
+        y_use = fillmissing(y,'previous','EndValues','nearest');
+
+    otherwise
+        error("Unknown missingPolicy: %s", opt.missingPolicy);
+end
+
+% -------------------- NNLS solve --------------------
+w_hat = lsqnonneg(X_use, y_use);
+
+% For reconstruction use the ORIGINAL X to see fit on the real (possibly missing) series:
 y_hat = X * w_hat;
 rmse  = sqrt(mean((y - y_hat).^2, 'omitnan'));
+
 
 % -------------------- Optional GT + classification --------------------
 cls = struct();
@@ -167,7 +195,13 @@ results.X = X;
 results.w_hat = w_hat;
 results.y_hat = y_hat;
 results.rmse  = rmse;
-results.isSon = pred_isSon;
+
+if isfield(cls,'pred_isSon')
+    results.isSon = cls.pred_isSon;
+else
+    results.isSon = [];
+end
+
 
 results.classification = cls;
 
@@ -180,10 +214,38 @@ if opt.doPlots
     title(sprintf('NNLS reconstruction (RMSE=%.4g)', results.rmse));
     legend('Location','best');
 
-    figure('Color','w','Name','NNLS: Weights');
-    stem(results.w_hat, 'filled');
-    grid on; xlabel('Customer index'); ylabel('w');
-    title('NNLS weights');
+   figure('Color','w','Name','NNLS: Weights'); hold on;
+
+if isfield(cls,'gt_isSon') && ~isempty(cls.gt_isSon)
+    gt = cls.gt_isSon(:);
+
+    idxS = find(gt);
+    idxO = find(~gt);
+
+    % Orphans (blue)
+    stem(idxO, results.w_hat(idxO), 'filled', ...
+        'Color',[0.20 0.50 0.95], 'MarkerFaceColor',[0.20 0.50 0.95], ...
+        'DisplayName','GT orphans');
+
+    % Sons (orange)
+    stem(idxS, results.w_hat(idxS), 'filled', ...
+        'Color',[1.00 0.55 0.10], 'MarkerFaceColor',[1.00 0.55 0.10], ...
+        'DisplayName','GT sons');
+
+    legend('Location','best');
+else
+    % fallback: no GT
+    stem(results.w_hat, 'filled', 'DisplayName','w\_hat');
+    legend('Location','best');
+end
+
+if isfield(cls,'tau') && ~isempty(cls.tau)
+    yline(cls.tau,'k--','DisplayName','\tau');
+end
+
+grid on;
+xlabel('Customer index'); ylabel('w\_hat');
+title('NNLS Final Weights');
 
     if isfield(cls,'F1')
         fprintf("\nNNLS classification (tau=%g, source=%s): Prec=%.3f Rec=%.3f F1=%.3f\n", ...
