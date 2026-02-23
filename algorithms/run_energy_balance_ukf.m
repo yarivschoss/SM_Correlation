@@ -92,10 +92,10 @@ end
 [~,ix] = sort({files.name});
 files = files(ix);
 
-Ncust = numel(files);
+Ncust = numel(files); % Ncust = number of customers
 
 % Build X matrix aligned to transformer timestamps
-X = zeros(numel(t_tr), Ncust);
+X = zeros(numel(t_tr), Ncust); % t_tr rows with Ncust columns
 
 for i = 1:Ncust
     fpath = fullfile(files(i).folder, files(i).name);
