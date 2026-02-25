@@ -49,8 +49,8 @@ p.addParameter('noiseStdCustomer',    0, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
 p.addParameter('noiseStdTransformer', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
 
 % Missingness (MCAR)
-p.addParameter('missingProbCustomer',    0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1);
-p.addParameter('missingProbTransformer', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1);
+p.addParameter('missingProbCustomer',    0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
+p.addParameter('missingProbTransformer', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
 
 % Anomalies
 p.addParameter('enableSpikes', true, @(x)islogical(x)||ismember(x,[0 1]));
@@ -62,7 +62,7 @@ p.addParameter('levelShiftProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); 
 p.addParameter('levelShiftAmp',  0, @(x)isnumeric(x)&&isscalar(x));             % added offset magnitude
 
 p.addParameter('enableDropoutBursts', false, @(x)islogical(x)||ismember(x,[0 1]));
-p.addParameter('dropoutBurstProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-series probability
+p.addParameter('dropoutBurstProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
 p.addParameter('dropoutBurstLen',  0, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % length in samples
 
 p.parse(varargin{:});
