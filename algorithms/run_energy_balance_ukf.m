@@ -24,8 +24,8 @@ function results = run_energy_balance_ukf(varargin)
 % -------------------- Parse inputs --------------------
 p = inputParser;
 p.addParameter('projectRoot', "", @(x)isstring(x)||ischar(x));
-p.addParameter('customersSubdir', fullfile("data","virtual_customers"), @(x)isstring(x)||ischar(x));
-p.addParameter('transformerFile', fullfile("data","transformer_profile.xlsx"), @(x)isstring(x)||ischar(x));
+p.addParameter('customersSubdir', fullfile("data","virtual_customers_pp"), @(x)isstring(x)||ischar(x));
+p.addParameter('transformerFile', fullfile("data","transformer_profile_pp.xlsx"), @(x)isstring(x)||ischar(x));
 p.addParameter('doPlots', true, @(x)islogical(x)||ismember(x,[0 1]));
 p.addParameter('fixedTau', [], @(x)isnumeric(x)&&isscalar(x) || isempty(x));
 p.addParameter('rngSeed', [], @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
@@ -310,11 +310,27 @@ if ~isempty(isSon)
     cmTest = confusionCounts(isSon, predTest);
     [PrecT, RecT, F1T] = prfFromCM(cmTest);
 
+    % Generate ROC vectors for Test set
+    tau_sweep = linspace(0, 1.1, 200);
+    tpr_vec = zeros(size(tau_sweep));
+    fpr_vec = zeros(size(tau_sweep));
+    for j = 1:length(tau_sweep)
+        p_j = (w_tes >= tau_sweep(j));
+        tp_j = sum(p_j & isSon);
+        fp_j = sum(p_j & ~isSon);
+        tn_j = sum(~p_j & ~isSon);
+        fn_j = sum(~p_j & isSon);
+        tpr_vec(j) = tp_j / max(1, tp_j + fn_j);
+        fpr_vec(j) = fp_j / max(1, fp_j + tn_j);
+    end
+    cls.ROC_TPR = tpr_vec;
+    cls.ROC_FPR = fpr_vec;
+
     cls.tau = tau_use;
-    cls.test.cm = cmTest;
-    cls.test.Precision = PrecT;
-    cls.test.Recall = RecT;
-    cls.test.F1 = F1T;
+    cls.cm = cmTest;
+    cls.Precision = PrecT;
+    cls.Recall = RecT;
+    cls.F1 = F1T;
     cls.w_cal = w_cal;
     cls.w_test = w_tes;
 end
@@ -339,6 +355,7 @@ results.y_hat = y_hat;
 results.rmse = rmse;
 
 results.classification = cls;
+results.algorithm = "UKF";
 
 if isfield(cls,'tau') && ~isempty(cls.tau)
     results.isSon = (w_hat >= cls.tau);
@@ -370,7 +387,7 @@ if opt.doPlots
         stem(w_hat, 'DisplayName','GT orphans'); hold on;
         stem(find(isSon), w_hat(isSon), 'DisplayName','GT sons');
         grid on; xlabel('Customer index'); ylabel('w\_hat');
-        title('Final Weights');
+        title('UKF Final Weights');
         legend('Location','best');
 
         if isfield(cls,'tau') && ~isempty(cls.tau)
@@ -379,7 +396,7 @@ if opt.doPlots
 
         fprintf('\nClassification (if GT available):\n');
         fprintf('  tau* = %.3f\n', cls.tau);
-        fprintf('  Test Precision=%.3f Recall=%.3f F1=%.3f\n', cls.test.Precision, cls.test.Recall, cls.test.F1);
+        fprintf('  Test Precision=%.3f Recall=%.3f F1=%.3f\n', cls.Precision, cls.Recall, cls.F1);
     end
 end
 

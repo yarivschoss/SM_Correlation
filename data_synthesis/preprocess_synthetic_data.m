@@ -53,17 +53,17 @@ p.addParameter('missingProbCustomer',    0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&
 p.addParameter('missingProbTransformer', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
 
 % Anomalies
-p.addParameter('enableSpikes', true, @(x)islogical(x)||ismember(x,[0 1]));
-p.addParameter('spikeProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
-p.addParameter('spikeAmp',  0, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % absolute added magnitude (same units as EC)
+p.addParameter('enableSpikes', false, @(x)islogical(x)||ismember(x,[0 1]));
+p.addParameter('spikeProb', 0.00125, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
+p.addParameter('spikeAmp',  6000, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % absolute added magnitude (same units as EC)
 
 p.addParameter('enableLevelShift', false, @(x)islogical(x)||ismember(x,[0 1]));
-p.addParameter('levelShiftProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-series probability
-p.addParameter('levelShiftAmp',  0, @(x)isnumeric(x)&&isscalar(x));             % added offset magnitude
+p.addParameter('levelShiftProb', 0.05, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-series probability
+p.addParameter('levelShiftFactor', -0.4, @(x)isnumeric(x)&&isscalar(x)); % represents the proportional bias (theft default)
 
 p.addParameter('enableDropoutBursts', false, @(x)islogical(x)||ismember(x,[0 1]));
-p.addParameter('dropoutBurstProb', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
-p.addParameter('dropoutBurstLen',  0, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % length in samples
+p.addParameter('dropoutBurstProb', 0.003, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
+p.addParameter('dropoutBurstLen',  8, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % length in samples
 
 p.parse(varargin{:});
 opt = p.Results;
@@ -142,12 +142,12 @@ for i = 1:Nfiles
     x = double(T.EC(:));
     Tn = numel(x);
 
-    % Noise
+    % Noise----------------------------------------------------------------
     if opt.noiseStdCustomer > 0
         x = x + opt.noiseStdCustomer * randn(Tn,1);
     end
 
-    % Spikes (per-sample)
+    % Spikes (per-sample)--------------------------------------------------
     nSp = 0;
     if opt.enableSpikes && opt.spikeProb > 0 && opt.spikeAmp > 0
         isSpike = rand(Tn,1) < opt.spikeProb;
@@ -156,27 +156,52 @@ for i = 1:Nfiles
         nSp = sum(isSpike);
     end
 
-    % Level shift (per-series)
-    lvl = 0;
-    if opt.enableLevelShift && opt.levelShiftProb > 0
-        if rand() < opt.levelShiftProb
-            lvl = opt.levelShiftAmp;
-            x = x + lvl;
+    % Level shift (per-series)---------------------------------------------
+    doShift = 0;
+    if opt.enableLevelShift && opt.levelShiftProb > 0 && opt.levelShiftFactor ~= 0
+    % Roll the dice once per series to decide if this meter is biased
+        if rand() < abs(opt.levelShiftProb)
+            doShift = 1;
+            % Apply a multiplicative factor to the entire series.
+            x = x * (1 + opt.levelShiftFactor);
         end
     end
 
-    % Dropout burst (per-series): consecutive NaNs
+    % Dropout burst (per-sample)-------------------------------------------
     doBurst = 0;
     if opt.enableDropoutBursts && opt.dropoutBurstProb > 0 && opt.dropoutBurstLen > 0
-        if rand() < opt.dropoutBurstProb
-            doBurst = 1;
-            L = min(Tn, round(opt.dropoutBurstLen));
-            startIdx = randi(max(1, Tn-L+1));
-            x(startIdx:startIdx+L-1) = NaN;
+    t = 1;
+    meanL = opt.dropoutBurstLen;
+    doBurst = 1;
+    % Define variability (standard deviation) as 1/3 of the mean length 
+    % to keep most bursts within a reasonable range around the target.
+    stdL = meanL / 3; 
+
+        while t <= Tn
+            % Per-sample check: does a dropout event start at this time step?
+            if rand() < opt.dropoutBurstProb
+                
+                % Generate a random burst length (Gaussian distribution around meanL)
+                % We use max(1, ...) to ensure the burst lasts at least one sample.
+                currentL = round(meanL + stdL * randn());
+                currentL = max(1, currentL);
+                
+                % Determine the end index, ensuring we don't exceed array bounds
+                endIdx = min(t + currentL - 1, Tn);
+                
+                % Apply the dropout by setting values to NaN
+                x(t:endIdx) = NaN;
+                
+                % Advance time to the end of the current burst to avoid nested events
+                t = endIdx + 1;
+            else
+                % No dropout started, move to the next time step
+                t = t + 1;
+            end
         end
     end
 
-    % Missingness MCAR (per-sample)
+    % Missingness MCAR (per-sample) ---------------------------------------
     nMiss = 0;
     if opt.missingProbCustomer > 0
         isMiss = rand(Tn,1) < opt.missingProbCustomer;
@@ -194,9 +219,9 @@ for i = 1:Nfiles
 
     stats.customers(i).file = string(files(i).name);
     stats.customers(i).nSamples = Tn;
-    stats.customers(i).nMissing = sum(isnan(T.EC));
+    stats.customers(i).nMissing = nMiss;
     stats.customers(i).nSpikes = nSp;
-    stats.customers(i).levelShift = lvl;
+    stats.customers(i).levelShift = doShift;
     stats.customers(i).dropoutBurst = doBurst;
 end
 

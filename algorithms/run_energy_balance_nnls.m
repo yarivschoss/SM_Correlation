@@ -15,8 +15,8 @@ function results = run_energy_balance_nnls(varargin)
 % -------------------- Parse inputs --------------------
 p = inputParser;
 p.addParameter('projectRoot', "", @(x)isstring(x)||ischar(x));
-p.addParameter('customersSubdir', fullfile("data","virtual_customers"), @(x)isstring(x)||ischar(x));
-p.addParameter('transformerFile', fullfile("data","transformer_profile.xlsx"), @(x)isstring(x)||ischar(x));
+p.addParameter('customersSubdir', fullfile("data","virtual_customers_pp"), @(x)isstring(x)||ischar(x));
+p.addParameter('transformerFile', fullfile("data","transformer_profile_pp.xlsx"), @(x)isstring(x)||ischar(x));
 p.addParameter('missingPolicy',"dropRows", @(x) any(strcmpi(string(x),["dropRows","interp","hold"])));
 p.addParameter('doPlots', true, @(x)islogical(x)||ismember(x,[0 1]));
 
@@ -162,6 +162,22 @@ if isfile(metaPath)
 
             pred_isSon = (w_hat >= tau_use);
 
+            % Generate ROC vectors by sweeping tau
+            tau_sweep = linspace(0, max(w_hat) + 0.1, 200);
+            tpr_vec = zeros(size(tau_sweep));
+            fpr_vec = zeros(size(tau_sweep));
+            for j = 1:length(tau_sweep)
+                p_j = (w_hat >= tau_sweep(j));
+                tp_j = sum(p_j & gt_isSon);
+                fp_j = sum(p_j & ~gt_isSon);
+                tn_j = sum(~p_j & ~gt_isSon);
+                fn_j = sum(~p_j & gt_isSon);
+                tpr_vec(j) = tp_j / max(1, tp_j + fn_j);
+                fpr_vec(j) = fp_j / max(1, fp_j + tn_j);
+            end
+            cls.ROC_TPR = tpr_vec;
+            cls.ROC_FPR = fpr_vec;
+
             cm.TP = sum(pred_isSon & gt_isSon);
             cm.FP = sum(pred_isSon & ~gt_isSon);
             cm.TN = sum(~pred_isSon & ~gt_isSon);
@@ -204,6 +220,7 @@ end
 
 
 results.classification = cls;
+results.algorithm = "NNLS";
 
 % -------------------- Plots --------------------
 if opt.doPlots
