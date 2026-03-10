@@ -54,7 +54,7 @@ p.addParameter('missingProbTransformer', 0, @(x)isnumeric(x)&&isscalar(x)&&x>=0&
 
 % Anomalies
 p.addParameter('enableSpikes', false, @(x)islogical(x)||ismember(x,[0 1]));
-p.addParameter('spikeProb', 0.00125, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
+p.addParameter('spikeProb', 0.0003, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
 p.addParameter('spikeAmp',  6000, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % absolute added magnitude (same units as EC)
 
 p.addParameter('enableLevelShift', false, @(x)islogical(x)||ismember(x,[0 1]));

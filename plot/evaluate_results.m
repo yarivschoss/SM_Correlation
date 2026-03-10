@@ -34,11 +34,14 @@ function evaluate_results(results)
         FPR = classif.ROC_FPR;
         
         % Sort vectors to ensure correct AUC calculation
-        [FPR_sorted, idx] = sort(FPR(:));
-        TPR_sorted = TPR(idx);
+        pairs = unique([FPR(:) TPR(:)], 'rows');
+        pairs = sortrows(pairs,1);
+
+        FPR_sorted = pairs(:,1);
+        TPR_sorted = pairs(:,2);
         
         % 1. Calculate AUC using trapezoidal numerical integration
-        auc_val = abs(trapz(FPR_sorted, TPR_sorted));
+        auc_val = trapz(FPR_sorted, TPR_sorted);
     else
         % Fallback for single point
         auc_val = NaN;

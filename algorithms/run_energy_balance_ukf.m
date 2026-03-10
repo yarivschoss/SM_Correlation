@@ -286,19 +286,46 @@ if ~isempty(isSon)
 
     if isempty(opt.fixedTau)
     % choose tau on calibration to maximize F1
-    taus = linspace(0,1,201);
-    best = struct('tau',0.5,'F1',-inf,'Prec',0,'Rec',0,'cm',[]);
-    for tt = taus
+    taus = linspace(min(w_cal), max(w_cal), 200);
+    
+    F1_vec = zeros(size(taus));
+    Prec_vec = zeros(size(taus));
+    Rec_vec = zeros(size(taus));
+    cm_vec = cell(size(taus));
+
+    for i = 1:numel(taus)
+
+        tt = taus(i);
         pred = w_cal >= tt;
+
         cm = confusionCounts(isSon, pred);
         [Prec, Rec, F1] = prfFromCM(cm);
-        if F1 > best.F1
-            best.tau = tt; best.F1 = F1; best.Prec = Prec; best.Rec = Rec; best.cm = cm;
-        end
+
+        F1_vec(i) = F1;
+        Prec_vec(i) = Prec;
+        Rec_vec(i) = Rec;
+        cm_vec{i} = cm;
+
     end
 
-    tau_use = best.tau;
+    % find all taus giving maximal F1
+    maxF1 = max(F1_vec);
+
+    % choose middle of optimal region
+    tau_use = mean(taus(F1_vec == maxF1));
+
+    % store best calibration result (closest tau to tau_use)
+    [~,best_idx] = min(abs(taus - tau_use));
+
+    best = struct();
+    best.tau = tau_use;
+    best.F1 = F1_vec(best_idx);
+    best.Prec = Prec_vec(best_idx);
+    best.Rec = Rec_vec(best_idx);
+    best.cm = cm_vec{best_idx};
+
     cls.calibration = best;
+
 
     else
         tau_use = opt.fixedTau;   % from last process
@@ -311,18 +338,26 @@ if ~isempty(isSon)
     [PrecT, RecT, F1T] = prfFromCM(cmTest);
 
     % Generate ROC vectors for Test set
-    tau_sweep = linspace(0, 1.1, 200);
+    tau_sweep = linspace(min(w_tes)-1e-6, max(w_tes)+1e-6, 200);
     tpr_vec = zeros(size(tau_sweep));
     fpr_vec = zeros(size(tau_sweep));
+
     for j = 1:length(tau_sweep)
         p_j = (w_tes >= tau_sweep(j));
+
         tp_j = sum(p_j & isSon);
         fp_j = sum(p_j & ~isSon);
         tn_j = sum(~p_j & ~isSon);
         fn_j = sum(~p_j & isSon);
+
         tpr_vec(j) = tp_j / max(1, tp_j + fn_j);
         fpr_vec(j) = fp_j / max(1, fp_j + tn_j);
     end
+
+    % add endpoints
+    fpr_vec = [0; fpr_vec(:); 1];
+    tpr_vec = [0; tpr_vec(:); 1];
+
     cls.ROC_TPR = tpr_vec;
     cls.ROC_FPR = fpr_vec;
 
@@ -348,7 +383,7 @@ results.customerFiles = string({files.name}).';
 
 results.w_hist = w_hist;
 results.alpha_hist = alpha_hist;
-results.w_hat = w_hat;
+results.w_hat = w_tes;
 results.alpha_hat = alpha_hat;
 
 results.y_hat = y_hat;
@@ -358,7 +393,7 @@ results.classification = cls;
 results.algorithm = "UKF";
 
 if isfield(cls,'tau') && ~isempty(cls.tau)
-    results.isSon = (w_hat >= cls.tau);
+    results.isSon = predTest;
 else
     results.isSon = [];
 end
@@ -385,7 +420,7 @@ if opt.doPlots
     if ~isempty(isSon)
         figure('Color','w','Name','w score with GT');
         stem(w_hat, 'DisplayName','GT orphans'); hold on;
-        stem(find(isSon), w_hat(isSon), 'DisplayName','GT sons');
+        stem(find(isSon), w_tes(isSon), 'DisplayName','GT sons');
         grid on; xlabel('Customer index'); ylabel('w\_hat');
         title('UKF Final Weights');
         legend('Location','best');
