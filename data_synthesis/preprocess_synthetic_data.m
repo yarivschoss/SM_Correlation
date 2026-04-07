@@ -59,7 +59,7 @@ p.addParameter('spikeAmp',  6000, @(x)isnumeric(x)&&isscalar(x)&&x>=0);       % 
 
 p.addParameter('enableLevelShift', false, @(x)islogical(x)||ismember(x,[0 1]));
 p.addParameter('levelShiftProb', 0.05, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-series probability
-p.addParameter('levelShiftFactor', -0.4, @(x)isnumeric(x)&&isscalar(x)); % represents the proportional bias (theft default)
+p.addParameter('levelShiftFactor', -0.6, @(x)isnumeric(x)&&isscalar(x)); % represents the proportional bias (theft default)
 
 p.addParameter('enableDropoutBursts', false, @(x)islogical(x)||ismember(x,[0 1]));
 p.addParameter('dropoutBurstProb', 0.003, @(x)isnumeric(x)&&isscalar(x)&&x>=0&&x<=1); % per-sample probability
@@ -91,8 +91,8 @@ end
 
 % RNG
 if isempty(opt.seed)
-    rng('shuffle');
-    seedUsed = NaN;
+    s = rng('shuffle');
+    seedUsed = s.Seed;
 else
     rng(opt.seed);
     seedUsed = opt.seed;

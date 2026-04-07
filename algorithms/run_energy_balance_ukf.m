@@ -383,7 +383,8 @@ results.customerFiles = string({files.name}).';
 
 results.w_hist = w_hist;
 results.alpha_hist = alpha_hist;
-results.w_hat = w_tes;
+results.w_hat = w_hat;
+results.w_test = w_tes;
 results.alpha_hat = alpha_hat;
 
 results.y_hat = y_hat;
@@ -419,8 +420,13 @@ if opt.doPlots
 
     if ~isempty(isSon)
         figure('Color','w','Name','w score with GT');
-        stem(w_hat, 'DisplayName','GT orphans'); hold on;
-        stem(find(isSon), w_tes(isSon), 'DisplayName','GT sons');
+
+        idx_orph = find(~isSon);
+        idx_son  = find(isSon);
+
+        stem(idx_orph, w_tes(idx_orph), 'b', 'DisplayName','GT orphans'); hold on;
+        stem(idx_son,  w_tes(idx_son),  'r', 'DisplayName','GT sons');
+
         grid on; xlabel('Customer index'); ylabel('w\_hat');
         title('UKF Final Weights');
         legend('Location','best');
