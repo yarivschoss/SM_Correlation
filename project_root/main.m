@@ -5,7 +5,7 @@ function main()
     setup_paths();
 
     % Load configuration for data collection / simulation
-    cfg = get_data_config();
+    %cfg = get_data_config();
 
     % Step 1: Run energy-balance-based algorithm
     

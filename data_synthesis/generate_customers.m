@@ -1,7 +1,7 @@
-function generate_customers(nCustomers, nSons, varargin)
+function seedUsed = generate_customers(nCustomers, nSons, varargin)
 % generate_customers
 % Generates nCustomers synthetic customer energy logs into:
-%   SM_Correlation/data/virtual_customers
+%   data/virtual_customers
 %
 % nSons customers will be marked as sons (is_son=1), rest as orphans (0).
 %
@@ -13,6 +13,9 @@ function generate_customers(nCustomers, nSons, varargin)
 % Uses:
 %   gaussian_NE.m
 %   generate_from_indexed_NE.m
+%
+% Returns:
+% seedUsed - the RNG seed actually used
 
 p = inputParser;
 p.addParameter('rngSeed', [], @(x) isempty(x) || (isnumeric(x)&&isscalar(x)));
@@ -23,13 +26,19 @@ opt = p.Results;
 if nargin < 2
     nSons = nCustomers; % default: all are sons
 end
+
 assert(nSons >= 0 && nSons <= nCustomers, 'nSons must be in [0, nCustomers].');
 
+% ---------- RNG ----------
 if isempty(opt.rngSeed)
-    rng('shuffle');   % new seed for every run
+    s = rng('shuffle');   % choose random seed and capture it
+    seedUsed = s.Seed;
 else
-    rng(opt.rngSeed); % reproduce seed
+    rng(opt.rngSeed);
+    seedUsed = opt.rngSeed;
 end
+
+fprintf("seed used: %u\n", seedUsed);
 
 startTime = datetime(2022,11,23,1,0,0);
 

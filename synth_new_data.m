@@ -1,4 +1,4 @@
-function synth_new_data(varargin)
+function out = synth_new_data(varargin)
 % synth_new_data
 % Wrapper to clear + synthesize customers + build transformer profile.
 %
@@ -13,6 +13,16 @@ function synth_new_data(varargin)
 %   'sons'    : number of sons (default 100)
 %   'periods' : number of periods (optional; if omitted -> not passed)
 %   'seed'    : rngSeed (optional; if omitted -> not passed; generate_customers does shuffle)
+%
+% Returns:
+% out struct with fields:
+%   .meters
+%   .sons
+%   .periods
+%   .seedRequested
+%   .seedUsed
+%   .customersDir
+%   .transformerFile
 
 % ---------- Parse Name-Value ----------
 p = inputParser;
@@ -36,6 +46,7 @@ outXlsx      = fullfile(projectRoot, "data", "transformer_profile.xlsx");
 fprintf("\n=== synth_new_data ===\n");
 fprintf("meters   : %d\n", nMeters);
 fprintf("sons     : %d\n", nSons);
+
 if isempty(opt.periods)
     fprintf("periods  : (not passed) -> generate_customers default\n");
 else
@@ -62,7 +73,7 @@ if ~isempty(opt.seed)
 end
 
 % ---------- Generate customers ----------
-generate_customers(gcArgs{:});
+seedUsed = generate_customers(gcArgs{:});
 
 % ---------- Sanity check ----------
 d = dir(fullfile(customersDir, "*.xlsx"));
@@ -71,5 +82,17 @@ assert(~isempty(d), "No customer XLSX files generated.");
 % ---------- Generate transformer ----------
 generate_transformer_profile(customersDir, outXlsx);
 
+fprintf("seed used : %u\n", seedUsed);
 fprintf("✔ Synthetic data generated successfully\n\n");
+
+% ---------- Return output ----------
+out = struct();
+out.meters         = nMeters;
+out.sons           = nSons;
+out.periods        = opt.periods;
+out.seedRequested  = opt.seed;
+out.seedUsed       = seedUsed;
+out.customersDir   = customersDir;
+out.transformerFile = outXlsx;
+
 end
